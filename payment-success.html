@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payment success</title>
+    <style>
+      body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;padding:32px;background:#fafafa;color:#111;}
+      .card{max-width:720px;margin:0 auto;background:#fff;border:1px solid #e6e6e6;border-radius:14px;padding:20px;}
+      .muted{color:#555;font-size:.95rem;line-height:1.5}
+      .ok{color:#0a7a2f;font-weight:700}
+      .err{color:#b00020;font-weight:700}
+      a{color:#111}
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Payment processing</h1>
+      <p id="status" class="muted">Finalizing the payment with PayPal…</p>
+      <p class="muted"><a href="/">Return to home</a></p>
+    </div>
+    <script>
+      (async () => {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get("token");
+        const statusEl = document.getElementById("status");
+        if (!token) {
+          statusEl.textContent = "Missing PayPal token.";
+          statusEl.className = "muted err";
+          return;
+        }
+
+        try {
+          const res = await fetch("/.netlify/functions/capture-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: token }),
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.ok) {
+            statusEl.textContent = "Payment could not be finalized. Please contact the lab with your PayPal receipt.";
+            statusEl.className = "muted err";
+            return;
+          }
+          statusEl.textContent = "Payment completed. A confirmation email will be sent shortly.";
+          statusEl.className = "muted ok";
+        } catch (e) {
+          statusEl.textContent = "Unexpected error while finalizing payment.";
+          statusEl.className = "muted err";
+        }
+      })();
+    </script>
+  </body>
+</html>
+
