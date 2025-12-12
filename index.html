@@ -282,9 +282,6 @@ const PRICE = {
   dev_scan_bw: 12
 };
 
-const LAB_EMAIL = "lisabarnabei7@gmail.com";
-const PAYPAL_URL = "https://paypal.me/LisaBarnabei";
-
 function openOrderPopup(){
   document.getElementById("order-popup-overlay").style.display = "flex";
   updateTotal();
@@ -304,7 +301,7 @@ function updateTotal(){
   else t.textContent = "–";
 }
 
-function submitOrder(e){
+async function submitOrder(e){
   e.preventDefault();
   const name  = document.getElementById("order-name").value.trim();
   const email = document.getElementById("order-email").value.trim();
@@ -312,44 +309,46 @@ function submitOrder(e){
   const film  = document.getElementById("order-film").value;
   const rolls = document.getElementById("order-rolls").value;
   const serviceText = document.querySelector("#order-service option:checked").textContent;
-  const total = document.getElementById("order-total").textContent;
+  const total = document.getElementById("order-total").textContent.replace(" €","");
   const notes = document.getElementById("order-notes").value.trim();
 
-  if(!name || !email || !addr || !film || !rolls || !serviceText){
+  if(!name || !email || !addr || !film || !rolls || !serviceText || !total){
     alert("Please fill in all required fields.");
     return;
   }
 
-  const body = encodeURIComponent(
-    "New film order request:\n\n" +
-    "Name: " + name + "\n" +
-    "Email: " + email + "\n" +
-    "Address: " + addr + "\n\n" +
-    "Film type: " + film + "\n" +
-    "Number of rolls: " + rolls + "\n" +
-    "Service: " + serviceText + "\n" +
-    "Estimated total: " + total + "\n\n" +
-    "Description / custom work:\n" +
-    (notes || "–") + "\n\n" +
-    "Customer will pay via PayPal at: " + PAYPAL_URL + "\n\n" +
-    "— Sent from Analog Film Lab order form"
-  );
+  try {
+    const res = await fetch("/.netlify/functions/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        email,
+        address: addr,
+        film,
+        rolls,
+        serviceText,
+        amount: total,
+        notes,
+      }),
+    });
 
-  const subject = encodeURIComponent("New film order from " + name);
-  const mailtoLink = "mailto:" + encodeURIComponent(LAB_EMAIL) +
-                     "?subject=" + subject +
-                     "&body=" + body;
+    if (!res.ok) {
+      alert("There was a problem creating your PayPal payment. Please try again.");
+      return;
+    }
 
-  // Open default mail client with order details
-  window.location.href = mailtoLink;
+    const data = await res.json();
+    if (!data.approveUrl) {
+      alert("Could not get PayPal approval link.");
+      return;
+    }
 
-  // Open PayPal payment page in new tab
-  window.open(PAYPAL_URL, "_blank");
-
-  alert("Your order details have been prepared. Your mail app and the PayPal page should open now.");
-  closeOrderPopup();
-  document.getElementById("order-form").reset();
-  updateTotal();
+    window.location.href = data.approveUrl;
+  } catch (err) {
+    console.error(err);
+    alert("Unexpected error. Please try again.");
+  }
 }
 </script>
 
